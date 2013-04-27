@@ -185,6 +185,10 @@ class Adafruit_NFCShield_I2C{
   static void PrintHex(const byte * data, const uint32_t numBytes);
   static void PrintHexChar(const byte * pbtData, const uint32_t numBytes);
 
+  uint32_t configurePeerAsTarget(); 
+  uint32_t targetTxRx(char* DataOut,char* DataIn);
+
+
  private:
   uint8_t _irq, _reset;
   uint8_t _uid[7];  // ISO14443A uid

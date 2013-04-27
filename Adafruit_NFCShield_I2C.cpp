@@ -1212,3 +1212,109 @@ boolean Adafruit_NFCShield_I2C::inListPassiveTarget() {
 
   return true;
 }
+
+
+uint32_t Adafruit_NFCShield_I2C::configurePeerAsTarget() {
+
+    byte pbuffer[38] =      { PN532_COMMAND_TGINITASTARGET, 
+                             0x00,
+                             0x08, 0x00, //SENS_RES
+                             0x12, 0x34, 0x56, //NFCID1
+                             0x40, //SEL_RES
+
+                             0x01, 0xFE, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7, // POL_RES
+                             0xC0, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 
+                           
+                             0xFF, 0xFF,
+                            
+                             0xAA, 0x99, 0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, //NFCID3t: Change this to desired value
+
+                             0x00, 0x00 //Length of general and historical bytes
+                             };
+
+    for(uint8_t iter=0;iter<38;iter++)
+    {
+        pn532_packetbuffer[iter] = pbuffer[iter];
+    }
+
+    if (! sendCommandCheckAck(pn532_packetbuffer, 38))
+        return false;
+
+    // read data packet
+    wirereaddata(pn532_packetbuffer, 18+6);
+
+#ifdef PN532DEBUG
+    Serial.println();
+    // check some basic stuff
+
+    Serial.println("PEER_TARGET");
+    for(uint8_t i=0;i<18+6;i++)
+    {
+        Serial.print(pn532_packetbuffer[i], HEX); Serial.println(" ");
+    }
+#endif
+
+return (pn532_packetbuffer[23] == 0x00); //No error as it received all response
+}
+
+
+
+
+uint32_t Adafruit_NFCShield_I2C::targetTxRx(char *DataOut,char *DataIn)
+{
+///////////////////////////////////// Receiving from Initiator ///////////////////////////
+    pn532_packetbuffer[0] = PN532_COMMAND_TGGETDATA;
+    if (! sendCommandCheckAck(pn532_packetbuffer, 1))
+        return false;
+
+    // read data packet
+    wirereaddata(pn532_packetbuffer, 18+6);
+
+#ifdef PN532DEBUG
+    Serial.println();
+    // check the response
+    Serial.println("TARGET_RX");
+    for(uint8_t i=0;i<18+6;i++)
+    {
+        Serial.print(pn532_packetbuffer[i], HEX); Serial.print(" ");
+    }
+#endif
+
+   for(uint8_t iter=8;iter<(8+16);iter++)
+   {
+      DataIn[iter-8] = pn532_packetbuffer[iter]; //data received from initiator
+   }
+
+///////////////////////////////////// Sending to Initiator ///////////////////////////
+if(pn532_packetbuffer[7] == 0x00) //If no errors in receiving, send data.
+{
+    pn532_packetbuffer[0] = PN532_COMMAND_TGSETDATA;
+    for(uint8_t iter=(1+0);iter<(1+16);iter++)
+    {
+        pn532_packetbuffer[iter] = DataOut[iter-1]; //pack the data to send to target
+    }
+
+    if (! sendCommandCheckAck(pn532_packetbuffer, 17))
+        return false;
+
+    // read data packet
+    wirereaddata(pn532_packetbuffer, 2+6);
+
+#ifdef PN532DEBUG
+    Serial.println();
+    // check the response
+    Serial.println("TARGET_TX");
+    for(uint8_t i=0;i<2+6;i++)
+    {
+        Serial.print(pn532_packetbuffer[i], HEX); Serial.print(" ");
+    }
+#endif
+
+return (pn532_packetbuffer[7] == 0x00); //No error
+}
+
+}
+
+
+
+
